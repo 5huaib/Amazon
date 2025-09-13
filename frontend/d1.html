@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Driver App</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #map, #map-mobile {
+            width: 100%;
+            height: 100%;
+            background-color: #e5e7eb;
+        }
+        #map {
+            height: 100vh;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+    </style>
+</head>
+<body class="md:flex bg-gray-100">
+
+    <div class="md:w-2/3 md:block hidden">
+        <div id="map"></div>
+    </div>
+
+    <div class="w-full md:w-1/3 min-h-screen bg-white shadow-lg md:shadow-none p-8 flex flex-col justify-between overflow-y-auto custom-scrollbar">
+        
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Driver Dashboard</h1>
+            <p class="text-sm text-gray-500">Manage incoming ride requests.</p>
+        </div>
+
+        <div class="mb-6 flex items-center space-x-4">
+            <h2 class="text-xl font-semibold text-gray-700">Driver ID:</h2>
+            <p id="driverIdDisplay" class="p-2 border rounded-md font-mono bg-gray-100">D-001</p>
+        </div>
+
+        <div id="pendingRidesContainer" class="flex-grow space-y-4">
+            <h3 class="text-lg font-bold text-gray-700">Pending Ride Requests</h3>
+            <div id="rideRequestsList" class="space-y-4"></div>
+        </div>
+
+        <div id="activeRidePanel" class="hidden mt-6 p-4 rounded-xl bg-blue-600 text-white shadow-lg">
+            <h3 class="text-xl font-bold mb-2">Active Ride</h3>
+            <div id="activeRideInfo" class="space-y-1 text-sm"></div>
+            <p class="text-sm mt-4">Tracking user...</p>
+        </div>
+
+        <div id="map-container-mobile" class="mt-6 md:hidden">
+            <div id="map-mobile" class="w-full h-80 rounded-lg"></div>
+        </div>
+        
+        <div class="text-center py-4 border-t border-gray-200 mt-8">
+            <p class="text-sm text-gray-500">
+                A project by
+            </p>
+            <p class="text-base font-semibold text-gray-700 mt-1">
+                SHAIK SHUAIB & AMAANULLA
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const driverClientApiUrl = 'http://localhost:5003/api/driver';
+        const pendingRidesList = document.getElementById('rideRequestsList');
+        const activeRidePanel = document.getElementById('activeRidePanel');
+        const activeRideInfo = document.getElementById('activeRideInfo');
+        const driverIdDisplay = document.getElementById('driverIdDisplay');
+        const mapContainerMobile = document.getElementById('map-container-mobile');
+
+        let map;
+        let mapMobile;
+        let pendingRideMarkers = {};
+        let userMarker;
+        let userMarkerMobile;
+        let driverMarker;
+        let driverMarkerMobile;
+        let locationInterval;
+        const currentDriverId = 'D-001';
+        let currentOrderId = null;
+
+        const userIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+        });
+        const driverIcon = L.icon({
+            iconUrl: 'https://em-content.zobj.net/source/apple/354/automobile_1f697.png',
+            iconSize: [42, 42],
+            iconAnchor: [21, 42],
+        });
+        const destinationIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+        });
+        
+        const bangaloreCenter = [12.9716, 77.5946];
+
+        function initMaps() {
+            map = L.map('map').setView(bangaloreCenter, 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            mapMobile = L.map('map-mobile').setView(bangaloreCenter, 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapMobile);
+            
+            driverIdDisplay.textContent = currentDriverId;
+
+            setInterval(fetchPendingRides, 5000);
+            fetchPendingRides();
+        }
+
+        async function fetchPendingRides() {
+            if (activeRidePanel.classList.contains('hidden') === false) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${driverClientApiUrl}/rides/pending`);
+                const result = await response.json();
+                
+                if (response.ok && result.success && result.rides.length > 0) {
+                    renderPendingRides(result.rides);
+                } else {
+                    pendingRidesList.innerHTML = `<p class="text-gray-500">No new ride requests for you at the moment.</p>`;
+                    clearPendingMarkers();
+                }
+            } catch (error) {
+                console.error("Error fetching pending rides:", error);
+                pendingRidesList.innerHTML = `<p class="text-red-500">Error fetching rides. Please ensure the driver client server is running on port 5003.</p>`;
+            }
+        }
+
+        function renderPendingRides(rides) {
+            pendingRidesList.innerHTML = '';
+            clearPendingMarkers();
+
+            const myRides = rides.filter(ride => ride.driver_id === currentDriverId);
+
+            if (myRides.length === 0) {
+                 pendingRidesList.innerHTML = `<p class="text-gray-500">No new ride requests for you at the moment.</p>`;
+                 return;
+            }
+
+            myRides.forEach(ride => {
+                const rideCard = document.createElement('div');
+                rideCard.className = 'p-4 rounded-lg shadow-md bg-gray-100 flex justify-between items-center';
+                rideCard.innerHTML = `
+                    <div>
+                        <p class="font-bold">From: ${ride.source_location}</p>
+                        <p class="text-sm text-gray-600">To: ${ride.dest_location}</p>
+                    </div>
+                    <button class="accept-btn bg-green-500 text-white text-sm px-4 py-2 rounded-md hover:bg-green-600 transition" data-order-id="${ride.order_id}">Accept</button>
+                `;
+                pendingRidesList.appendChild(rideCard);
+
+                const coords = [ride.user_coords[0], ride.user_coords[1]];
+                const marker = L.marker(coords, {
+                    title: `Ride to ${ride.dest_location}`
+                }).addTo(map);
+                pendingRideMarkers[ride.order_id] = marker;
+            });
+
+            const acceptButtons = document.querySelectorAll('.accept-btn');
+            acceptButtons.forEach(button => {
+                button.addEventListener('click', handleAcceptRide);
+            });
+        }
+        
+        function clearPendingMarkers() {
+            for (const orderId in pendingRideMarkers) {
+                map.removeLayer(pendingRideMarkers[orderId]);
+            }
+            pendingRideMarkers = {};
+        }
+
+        async function handleAcceptRide(e) {
+            const orderId = e.target.dataset.orderId;
+            currentOrderId = orderId;
+            const response = await fetch(`${driverClientApiUrl}/rides/accept/${currentOrderId}/${currentDriverId}`, { method: 'POST' });
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                console.log('Ride accepted:', result);
+                startActiveRideTracking(result.server_response.ride_details);
+            } else {
+                console.error('Failed to accept ride:', result);
+                alert(`Failed to accept ride: ${result.message || result.error}`);
+            }
+        }
+        
+        function startActiveRideTracking(rideDetails) {
+            document.getElementById('pendingRidesContainer').classList.add('hidden');
+            activeRidePanel.classList.remove('hidden');
+            mapContainerMobile.classList.remove('hidden');
+            
+            activeRideInfo.innerHTML = `
+                <p><strong>Status:</strong> Driver is on the way to pick up the user</p>
+                <p><strong>User Destination:</strong> ${rideDetails.source_location}</p>
+                <p><strong>User Contact:</strong> ${rideDetails.user_contact}</p>
+            `;
+            
+            const userCoords = [rideDetails.user_coords[0], rideDetails.user_coords[1]];
+            
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+            userMarker = L.marker(userCoords, { title: "User Location", icon: userIcon }).addTo(map).bindPopup("User Location");
+            userMarkerMobile = L.marker(userCoords, { title: "User Location", icon: userIcon }).addTo(mapMobile).bindPopup("User Location");
+            
+            const driverCurrentLocation = [12.95, 77.65];
+            driverMarker = L.marker(driverCurrentLocation, {icon: driverIcon, title: "Your Location"}).addTo(map).bindPopup("Your Location");
+            driverMarkerMobile = L.marker(driverCurrentLocation, {icon: driverIcon, title: "Your Location"}).addTo(mapMobile).bindPopup("Your Location");
+            
+            map.fitBounds([userCoords, driverCurrentLocation]);
+            mapMobile.fitBounds([userCoords, driverCurrentLocation]);
+
+            locationInterval = setInterval(() => {
+                fetchDriverLocation(currentDriverId, currentOrderId);
+            }, 3000);
+        }
+
+        async function fetchDriverLocation(driverId, orderId) {
+            try {
+                const response = await fetch(`${driverClientApiUrl}/location/${driverId}/${orderId}`);
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    const status = result.location_data.status;
+                    
+                    if (status === 'arrived') {
+                        clearInterval(locationInterval);
+                        activeRideInfo.innerHTML = `
+                            <p class="font-bold text-lg">You have arrived at the user's location!</p>
+                            <p><strong>OTP:</strong> ${result.location_data.otp}</p>
+                        `;
+                    } else if (status === 'in_transit') {
+                        const driverCoords = [result.location_data.latitude, result.location_data.longitude];
+                        if (driverMarker) {
+                            driverMarker.setLatLng(driverCoords);
+                        }
+                        if (driverMarkerMobile) {
+                            driverMarkerMobile.setLatLng(driverCoords);
+                        }
+                        map.panTo(driverCoords);
+                        mapMobile.panTo(driverCoords);
+                    }
+                } else {
+                    console.error('Failed to get driver location:', result.message);
+                }
+            } catch (error) {
+                console.error('Error fetching driver location:', error);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', initMaps);
+    </script>
+</body>
+</html>

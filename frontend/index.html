@@ -1,451 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon Ride - Live Tracking</title>
-    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amazon Rides - Live Tracking</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Roboto', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        /* Ensure map containers have a defined height */
-        #map, #map-mobile {
-            width: 100%;
-            height: 100%;
-            background-color: #e5e7eb; /* A fallback background color */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.5s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
         }
-        #map {
-            height: 100vh;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 4px;
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
-<body class="md:flex bg-gray-100">
+<body class="bg-white">
 
-    <div class="md:w-2/3 md:block hidden">
-        <div id="map"></div>
-    </div>
-
-    <div class="w-full md:w-1/3 min-h-screen bg-white shadow-lg md:shadow-none p-8 flex flex-col justify-between overflow-y-auto custom-scrollbar">
-        
-        <div class="mb-8">
-            <svg class="h-12 w-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10.893 2.677a2.25 2.25 0 10-4.788 0l.93 3.93h3.535-3.535l.93-3.93zM10.893 2.677a2.25 2.25 0 10-4.788 0l.93 3.93h3.535-3.535l.93-3.93zM8 20a1 1 0 01-1-1v-4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H8z" />
-                <path fill-rule="evenodd" d="M2.25 5.378A2.25 2.25 0 014.5 3h11a2.25 2.25 0 012.25 2.378v10.5c0 .717-.287 1.405-.798 1.906a2.25 2.25 0 01-1.906.798H4.75a2.25 2.25 0 01-1.906-.798 2.25 2.25 0 01-.798-1.906V5.378zm5.5 2.372a.75.75 0 000 1.5h1.5a.75.75 0 000-1.5h-1.5zm6.25-1.5a.75.75 0 010 1.5h-1.5a.75.75 0 010-1.5h1.5zm-3.25 5a.75.75 0 000 1.5h1.5a.75.75 0 000-1.5h-1.5z" clip-rule="evenodd" />
-            </svg>
-            <h1 class="text-3xl font-bold text-gray-900">Request a Ride</h1>
-            <p class="text-sm text-gray-500">Find and track your ride in real-time.</p>
-        </div>
-
-        <div>
-            <form id="orderForm" class="space-y-4">
-                <div>
-                    <label for="sourceLocation" class="block text-sm font-medium text-gray-700">From</label>
-                    <input type="text" list="locations" id="sourceLocation" name="sourceLocation" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 transition duration-200">
+    <div class="flex flex-wrap min-h-screen">
+        <!-- Left Panel: Form & Info -->
+        <div class="w-full md:w-1/2 lg:w-1/3 flex flex-col justify-center p-8 lg:p-12">
+            <div class="w-full max-w-md mx-auto">
+                <!-- Header -->
+                <div class="mb-8">
+                    <!-- Styled Text Logo -->
+                    <div class="h-12 mb-4 flex items-center">
+                        <span class="text-4xl font-black text-gray-900 tracking-tight">Amazon</span>
+                        <span class="text-4xl font-medium text-gray-500 ml-1">Rides</span>
+                    </div>
+                    <h1 class="text-3xl font-bold text-gray-900">Book Your Ride</h1>
+                    <p class="text-gray-500 mt-2">Reliable and professional cab services.</p>
                 </div>
 
-                <div>
-                    <label for="destLocation" class="block text-sm font-medium text-gray-700">To</label>
-                    <input type="text" list="locations" id="destLocation" name="destLocation" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 transition duration-200">
-                </div>
-            
-                <div>
-                    <label for="contactNo" class="block text-sm font-medium text-gray-700">Contact No.</label>
-                    <input type="text" id="contactNo" name="contactNo" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 transition duration-200"
-                           pattern="[0-9]{10}" title="Please enter a 10-digit phone number">
+                <!-- Form Container -->
+                <div id="formContainer">
+                    <form id="orderForm" class="space-y-4">
+                        <div>
+                            <label for="sourceLocation" class="block text-sm font-medium text-gray-700">Pick Up</label>
+                            <div class="mt-1">
+                                <input type="text" list="locations" id="sourceLocation" name="sourceLocation" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-400 focus:ring-yellow-400 sm:text-sm p-3" placeholder="Select a starting point" />
+                            </div>
+                            <button type="button" id="liveLocationBtn" class="group mt-2 flex items-center text-sm text-gray-600 hover:text-black font-medium">
+                                <svg class="h-4 w-4 mr-1.5 text-gray-500 group-hover:text-black" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.1.42-.25.692-.455.272-.204.623-.478-1.022-.822.399-.344.822-.727-1.258-1.152.437-.424.847-.874 1.229-1.342a10.035 10.035 0 001.222-1.616.99.99 0 00.062-.215.99.99 0 00-.011-.223c-.023-.065-.05-.126-.08-.184a.99.99 0 00-.097-.192 10.075 10.075 0 00-1.616-1.222c-.468-.382-.918-.77-1.342-1.229-.425-.436-.808-.86-1.152-1.258-.344-.4-.618-.75-.822-1.022-.204-.272-.455-.506-.455-.692a5.741 5.741 0 00-.14-.282l-.008-.018-.003-.006-.001-.002C10.11 1.02 10 1 10 1s-.11.02-.308.066l-.002.001-.006.003-.018.008a5.741 5.741 0 00-.281.14c-.186.1-.42.25-.692-.455-.272.204-.623-.478-1.022-.822-.399-.344-.822-.727-1.258-1.152C5.556 3.35 5.146 3.8 4.719 4.228a10.035 10.035 0 00-1.222 1.616.99.99 0 00-.062.215.99.99 0 00.011.223c.023.065.05.126.08.184a.99.99 0 00.097-.192 10.075 10.075 0 001.616 1.222c.468.382.918-.77 1.342 1.229.425.436.808.86 1.152 1.258.344.4.618-.75.822 1.022.204-.272.455.506.455.692a5.741 5.741 0 00.14.282l.008.018.003.006.001.002zM10 8a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg>
+                                Use Current Location
+                            </button>
+                        </div>
+                        <div>
+                            <label for="destLocation" class="block text-sm font-medium text-gray-700">Drop Off</label>
+                            <div class="mt-1">
+                                <input type="text" list="locations" id="destLocation" name="destLocation" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-400 focus:ring-yellow-400 sm:text-sm p-3" placeholder="Select a destination" />
+                            </div>
+                        </div>
+                        <div>
+                            <label for="contactNo" class="block text-sm font-medium text-gray-700">Contact Number</label>
+                             <div class="mt-1">
+                                <input type="text" id="contactNo" name="contactNo" required pattern="[0-9]{10}" title="Please enter a 10-digit phone number" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-400 focus:ring-yellow-400 sm:text-sm p-3" placeholder="10-digit mobile number" />
+                            </div>
+                        </div>
+                        
+                        <datalist id="locations">
+                            <option value="Koramangala"></option><option value="Indiranagar"></option><option value="Jayanagar"></option><option value="Whitefield"></option><option value="HSR Layout"></option><option value="Electronic City"></option><option value="Marathahalli"></option><option value="Bellandur"></option><option value="Hebbal"></option><option value="Yelahanka"></option><option value="Malleshwaram"></option><option value="Rajajinagar"></option><option value="Banashankari"></option><option value="Basavanagudi"></option><option value="MG Road"></option><option value="Ulsoor"></option><option value="Bannerghatta"></option><option value="JP Nagar"></option><option value="BTM Layout"></option><option value="Sarjapur Road"></option><option value="Richmond Town"></option><option value="Frazer Town"></option><option value="Yeshwanthpur"></option><option value="Kengeri"></option><option value="Vijayanagar"></option>
+                        </datalist>
+
+                        <button type="submit" id="submitBtn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-black bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                            BOOK YOUR RIDE
+                        </button>
+                    </form>
                 </div>
                 
-                <datalist id="locations">
-                    <option value="Koramangala"></option>
-                    <option value="Indiranagar"></option>
-                    <option value="Jayanagar"></option>
-                    <option value="Rajajinagar"></option>
-                    <option value="Basavanagudi"></option>
-                    <option value="Marathahalli"></option>
-                    <option value="HSR Layout"></option>
-                    <option value="Whitefield"></option>
-                    <option value="Electronic City"></option>
-                    <option value="JP Nagar"></option>
-                    <option value="BTM Layout"></option>
-                    <option value="Malleshwaram"></option>
-                    <option value="Hebbal"></option>
-                    <option value="Sarjapur Road"></option>
-                    <option value="Banashankari"></option>
-                    <option value="Vasanth Nagar"></option>
-                    <option value="Bellandur"></option>
-                    <option value="Yelahanka"></option>
-                    <option value="Frazer Town"></option>
-                    <option value="Richmond Town"></option>
-                </datalist>
-
-                <button type="submit" id="submitBtn"
-                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300">
-                    Request Ride
-                </button>
-            </form>
-
-            <div id="responseContainer" class="mt-6 hidden">
-                <h3 class="text-lg font-bold text-gray-700 mb-2">API Response:</h3>
-                <pre id="responseOutput" class="bg-gray-100 p-4 rounded-md text-xs overflow-x-auto border border-gray-200"></pre>
+                <!-- Dynamic Panels -->
+                <div id="driverDetails" class="mt-6 hidden fade-in-up">
+                     <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-bold mb-4 text-gray-800 text-center">Driver is on the way!</h3>
+                        <div class="flex items-center space-x-4">
+                            <img class="h-16 w-16 rounded-full object-cover" src="https://i.pravatar.cc/150?u=driver1" alt="Driver Avatar">
+                            <div id="driverInfo" class="space-y-1 text-sm font-medium text-gray-600"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="arrivalInfo" class="mt-6 hidden fade-in-up">
+                     <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 text-center">
+                        <h3 id="arrivalMessage" class="text-lg font-bold text-green-600"></h3>
+                        <p class="text-gray-500 text-sm mt-1">Share this OTP with your driver to start the trip.</p>
+                        <div id="otpDisplay" class="mt-4 flex justify-center space-x-2 font-mono text-3xl font-bold text-gray-800 tracking-widest"></div>
+                    </div>
+                </div>
             </div>
-            
-            <div id="driverDetails" class="mt-6 hidden p-4 rounded-xl bg-green-500 text-white shadow-lg">
-                <h3 class="text-xl font-bold mb-2">Driver Found!</h3>
-                <div id="driverInfo" class="space-y-1 text-sm"></div>
-            </div>
-
-            <div id="arrivalInfo" class="mt-6 hidden p-4 text-center rounded-xl bg-blue-600 text-white shadow-lg">
-                <p class="text-lg font-bold" id="arrivalMessage"></p>
-                <div class="text-3xl font-extrabold mt-2 tracking-widest" id="otpDisplay"></div>
-            </div>
-
-            <div id="map-container-mobile" class="mt-6 md:hidden hidden">
-                <h3 class="text-xl font-bold mb-2 text-gray-700">Live Ride Tracking</h3>
-                <div id="map-mobile" class="w-full h-80 rounded-lg"></div>
-            </div>
-            
         </div>
-        
-        <div class="text-center py-4 border-t border-gray-200 mt-8">
-            <p class="text-sm text-gray-500">
-                A project by
-            </p>
-            <p class="text-base font-semibold text-gray-700 mt-1">
-                SHAIK SHUAIB & AMAANULLA
-            </p>
+
+        <!-- Right Panel: Image & Map -->
+        <div class="w-full md:w-1/2 lg:w-2/3 bg-gray-900 relative">
+            <div id="image-container" class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=2070&auto=format&fit=crop');">
+                 <div class="absolute inset-0 bg-black opacity-40"></div>
+            </div>
+            <div id="map-container" class="absolute inset-0 hidden">
+                <div id="map" class="w-full h-full"></div>
+            </div>
         </div>
-        </div>
+    </div>
 
     <script>
-        // Global variables
-        let map;
-        let mapMobile;
-        let userMarker, userMarkerMobile;
-        let driverMarker, driverMarkerMobile;
-        let userLocation = { lat: 12.9716, lng: 77.5946 }; // Default to Bengaluru city center
-        let driverId = null;
-        let locationInterval;
-        let destinationCoords = null; // To store the user's destination coordinates
-
-        // --- DOM Element References ---
+        const clientApiUrl = 'http://localhost:5001/api/client';
+        const locationsCoords = { "Koramangala": {"lat": 12.9345, "lng": 77.6186}, "Indiranagar": {"lat": 12.9784, "lng": 77.6408}, "Jayanagar": {"lat": 12.9293, "lng": 77.5848}, "Whitefield": {"lat": 12.9699, "lng": 77.7508}, "HSR Layout": {"lat": 12.9116, "lng": 77.6385}, "Electronic City": {"lat": 12.8452, "lng": 77.6602}, "Marathahalli": {"lat": 12.9569, "lng": 77.7011}, "Bellandur": {"lat": 12.9304, "lng": 77.6784}, "Hebbal": {"lat": 13.0359, "lng": 77.5970}, "Yelahanka": {"lat": 13.1007, "lng": 77.5963}, "Malleshwaram": {"lat": 13.0068, "lng": 77.5703}, "Rajajinagar": {"lat": 12.9901, "lng": 77.5529}, "Banashankari": {"lat": 12.9252, "lng": 77.5469}, "Basavanagudi": {"lat": 12.9424, "lng": 77.5755}, "MG Road": {"lat": 12.9749, "lng": 77.6095}, "Ulsoor": {"lat": 12.9793, "lng": 77.6158}, "Bannerghatta": {"lat": 12.8016, "lng": 77.5771}, "JP Nagar": {"lat": 12.9073, "lng": 77.5784}, "BTM Layout": {"lat": 12.9166, "lng": 77.6101}, "Sarjapur Road": {"lat": 12.9121, "lng": 77.6749}, "Richmond Town": {"lat": 12.9610, "lng": 77.6018}, "Frazer Town": {"lat": 12.9965, "lng": 77.6139}, "Yeshwanthpur": {"lat": 13.0249, "lng": 77.5533}, "Kengeri": {"lat": 12.9174, "lng": 77.4837}, "Vijayanagar": {"lat": 12.9723, "lng": 77.5222} };
+        const allowedLocations = Object.keys(locationsCoords);
         const form = document.getElementById('orderForm');
-        const sourceLocationInput = document.getElementById('sourceLocation');
-        const destLocationInput = document.getElementById('destLocation');
-        const contactNoInput = document.getElementById('contactNo');
         const submitBtn = document.getElementById('submitBtn');
-        const responseContainer = document.getElementById('responseContainer');
-        const responseOutput = document.getElementById('responseOutput');
+        const sourceLocationInput = document.getElementById('sourceLocation');
         const driverDetailsDiv = document.getElementById('driverDetails');
         const driverInfoDiv = document.getElementById('driverInfo');
         const arrivalInfoDiv = document.getElementById('arrivalInfo');
         const arrivalMessage = document.getElementById('arrivalMessage');
         const otpDisplay = document.getElementById('otpDisplay');
-        const mapContainerMobile = document.getElementById('map-container-mobile');
+        const mapContainer = document.getElementById('map-container');
+        const imageContainer = document.getElementById('image-container');
+        const liveLocationBtn = document.getElementById('liveLocationBtn');
+        let map, userMarker, driverMarker;
+        let rideStatusInterval, liveUserCoords = null;
+        const bangaloreCenter = [12.9716, 77.5946];
+        const userIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+        const driverIcon = L.icon({ iconUrl: 'https://em-content.zobj.net/source/apple/354/automobile_1f697.png', iconSize: [42, 42], iconAnchor: [21, 42] });
 
-        // --- Define custom icons using Leaflet's L.icon ---
-        const userIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-            shadowSize: [41, 41]
-        });
-
-   const driverIcon = L.icon({
-    // Using an image of the specific emoji you wanted
-    iconUrl: 'https://em-content.zobj.net/source/apple/354/automobile_1f697.png',
-    iconSize: [42, 42],   // A slightly larger size for better visibility
-    iconAnchor: [21, 42],   // Centered horizontally, at the bottom vertically
-    popupAnchor: [0, -42],    // Positions the popup nicely above the car
-    // We can remove the shadow for a cleaner, modern look for the emoji
-    // shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    // shadowSize: [41, 41]
-});
-        const destinationIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-            shadowSize: [41, 41]
-        });
-
-        // --- Location Data (from amazon_server.py for client-side lookup) ---
-        const bangalore_locations_coords = {
-            "Koramangala": {lat: 12.9345, lng: 77.6186}, "Indiranagar": {lat: 12.9784, lng: 77.6408},
-            "Jayanagar": {lat: 12.9293, lng: 77.5848}, "Rajajinagar": {lat: 12.9972, lng: 77.5502},
-            "Basavanagudi": {lat: 12.9416, lng: 77.5752}, "Marathahalli": {lat: 12.9567, lng: 77.7011},
-            "HSR Layout": {lat: 12.9116, lng: 77.6385}, "Whitefield": {lat: 12.9699, lng: 77.7508},
-            "Electronic City": {lat: 12.8466, lng: 77.6657}, "JP Nagar": {lat: 12.9063, lng: 77.5844},
-            "BTM Layout": {lat: 12.9165, lng: 77.6095}, "Malleshwaram": {lat: 12.9986, lng: 77.5684},
-            "Hebbal": {lat: 13.0381, lng: 77.5913}, "Sarjapur Road": {lat: 12.9234, lng: 77.7027},
-            "Banashankari": {lat: 12.9268, lng: 77.5513}, "Vasanth Nagar": {lat: 12.9892, lng: 77.5878},
-            "Bellandur": {lat: 12.9304, lng: 77.6784}, "Yelahanka": {lat: 13.1007, lng: 77.5963},
-            "Frazer Town": {lat: 12.9959, lng: 77.6124}, "Richmond Town": {lat: 12.9649, lng: 77.5954},
-        };
-        
-        // --- Functions ---
-        
-        function initMaps() {
-            // Desktop Map
-            map = L.map('map').setView([userLocation.lat, userLocation.lng], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            // Mobile Map
-            mapMobile = L.map('map-mobile').setView([userLocation.lat, userLocation.lng], 12);
-             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(mapMobile);
-
-            getUserLocation();
+        function initMap() {
+            if (map) { map.remove(); }
+            map = L.map('map').setView(bangaloreCenter, 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // metres
-            const φ1 = lat1 * Math.PI/180; // φ, λ in radians
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c; // in metres
-        }
-
-        function findNearestLocation(currentLat, currentLng) {
-            let nearestName = "Koramangala"; // Default if no location found
-            let minDistance = Infinity;
-
-            for (const name in bangalore_locations_coords) {
-                const coords = bangalore_locations_coords[name];
-                const dist = calculateDistance(currentLat, currentLng, coords.lat, coords.lng);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    nearestName = name;
+        liveLocationBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) return alert('Geolocation is not supported.');
+            const originalText = liveLocationBtn.textContent;
+            liveLocationBtn.textContent = 'Getting Location...';
+            liveLocationBtn.disabled = true;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    liveUserCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    sourceLocationInput.value = 'Current Location (Live)';
+                    sourceLocationInput.classList.add('bg-yellow-100', 'border-yellow-400');
+                    liveLocationBtn.textContent = originalText;
+                    liveLocationBtn.disabled = false;
+                },
+                () => {
+                    alert('Unable to retrieve your location.');
+                    liveLocationBtn.textContent = originalText;
+                    liveLocationBtn.disabled = false;
                 }
-            }
-            return nearestName;
-        }
-
-        function getUserLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        };
-                        
-                        const userLatLng = [userLocation.lat, userLocation.lng];
-                        map.setView(userLatLng, 13);
-                        mapMobile.setView(userLatLng, 13);
-                        
-                        userMarker = L.marker(userLatLng, { icon: userIcon }).addTo(map).bindPopup('Your Location');
-                        userMarkerMobile = L.marker(userLatLng, { icon: userIcon }).addTo(mapMobile).bindPopup('Your Location');
-
-                        const nearestLocationName = findNearestLocation(userLocation.lat, userLocation.lng);
-                        sourceLocationInput.value = nearestLocationName;
-                    },
-                    (error) => {
-                        console.error("Error getting user location:", error);
-                        alert("Geolocation permission denied or unavailable. Using a default location.");
-                        const defaultLatLng = [userLocation.lat, userLocation.lng];
-                        userMarker = L.marker(defaultLatLng, { icon: userIcon }).addTo(map).bindPopup('Default Location');
-                        userMarkerMobile = L.marker(defaultLatLng, { icon: userIcon }).addTo(mapMobile).bindPopup('Default Location');
-                        sourceLocationInput.value = "Koramangala"; // Set a default source
-                    }
-                );
-            } else {
-                 alert("Geolocation is not supported by this browser. Using a default location.");
-                 const defaultLatLng = [userLocation.lat, userLocation.lng];
-                 userMarker = L.marker(defaultLatLng, { icon: userIcon }).addTo(map).bindPopup('Default Location');
-                 userMarkerMobile = L.marker(defaultLatLng, { icon: userIcon }).addTo(mapMobile).bindPopup('Default Location');
-                 sourceLocationInput.value = "Koramangala"; // Set a default source
-            }
-        }
+            );
+        });
         
-        async function fetchDriverLocation() {
-            if (!driverId) return;
+        sourceLocationInput.addEventListener('input', () => {
+            if (sourceLocationInput.value !== 'Current Location (Live)') {
+                liveUserCoords = null;
+                sourceLocationInput.classList.remove('bg-yellow-100', 'border-yellow-400');
+            }
+        });
 
+        async function updateDriverLocation(driverId, orderId) {
             try {
-                const response = await fetch(`http://localhost:5001/api/client/drivers/location/${driverId}`);
+                const response = await fetch(`${clientApiUrl}/drivers/location/${driverId}/${orderId}`);
                 const result = await response.json();
-
                 if (response.ok) {
-                    const status = result.status;
-                    if (status === 'in_transit') {
-                        const driverCoords = { lat: result.latitude, lng: result.longitude };
-                    
-                        const driverLatLng = [driverCoords.lat, driverCoords.lng];
-                        if (!driverMarker) {
-                            driverMarker = L.marker(driverLatLng, { icon: driverIcon }).addTo(map).bindPopup('Your Driver');
-                            driverMarkerMobile = L.marker(driverLatLng, { icon: driverIcon }).addTo(mapMobile).bindPopup('Your Driver');
-                        } else {
-                            driverMarker.setLatLng(driverLatLng);
-                            driverMarkerMobile.setLatLng(driverLatLng);
-                        }
-                        
-                        // Adjust map view to show both user and driver
-                        const bounds = L.latLngBounds([userMarker.getLatLng(), driverMarker.getLatLng()]);
-                        if (destinationCoords) {
-                            bounds.extend(destinationCoords); // Include destination in bounds
-                        }
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                        mapMobile.fitBounds(bounds, { padding: [50, 50] });
-
-                    } else if (status === 'arrived') {
-                        clearInterval(locationInterval);
-                        arrivalMessage.textContent = "Your driver has arrived!";
-                        otpDisplay.textContent = `OTP: ${result.otp}`;
-                        arrivalInfoDiv.classList.remove('hidden');
-                        driverDetailsDiv.classList.add('hidden'); // Hide driver details once arrived
-                        mapContainerMobile.classList.add('hidden'); // Hide mobile map
-                        
-                        // Update driver marker to final position and change icon if desired
-                        if (driverMarker) {
-                            driverMarker.setLatLng(userMarker.getLatLng()); // Driver is at user's location
-                            driverMarkerMobile.setLatLng(userMarkerMobile.getLatLng());
-                            // driverMarker.setIcon(arrivedDriverIcon); // Optional: new icon for arrived
-                        }
-                        alert(`Your driver has arrived! OTP: ${result.otp}`);
+                    const { latitude, longitude, status, otp } = result;
+                    const driverCoords = [latitude, longitude];
+                    if (driverMarker) driverMarker.setLatLng(driverCoords);
+                    if (userMarker && map) {
+                        map.panTo(driverCoords, { animate: true });
                     }
-                } else {
-                    console.error("Error fetching driver location:", result.error);
-                    // Handle error, maybe stop interval
-                }
-            } catch (error) {
-                console.error("Network error fetching driver location:", error);
-                // Handle network error
-            }
+                    if (status === 'arrived') {
+                        clearInterval(rideStatusInterval);
+                        driverDetailsDiv.classList.add('hidden');
+                        arrivalInfoDiv.classList.remove('hidden');
+                        arrivalMessage.textContent = 'Your driver has arrived!';
+                        otpDisplay.innerHTML = otp.split('').map(char => `<div class="w-10 h-14 flex items-center justify-center bg-gray-200 rounded-md">${char}</div>`).join('');
+                    }
+                } else { clearInterval(rideStatusInterval); }
+            } catch (error) { clearInterval(rideStatusInterval); }
+        }
+
+        function startRideTracking(driverId, orderId) {
+            rideStatusInterval = setInterval(() => { updateDriverLocation(driverId, orderId); }, 3000);
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // Clear previous state
-            clearInterval(locationInterval);
-            driverId = null;
-            responseContainer.classList.add('hidden');
-            driverDetailsDiv.classList.add('hidden');
-            arrivalInfoDiv.classList.add('hidden');
-            mapContainerMobile.classList.add('hidden');
-            responseOutput.textContent = '';
-            driverInfoDiv.innerHTML = '';
-            otpDisplay.textContent = '';
-
-            // Remove all markers from maps
-            if (userMarker) { map.removeLayer(userMarker); mapMobile.removeLayer(userMarkerMobile); }
-            if (driverMarker) { map.removeLayer(driverMarker); mapMobile.removeLayer(driverMarkerMobile); }
-            // Re-add user marker at current location
-            userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(map).bindPopup('Your Location');
-            userMarkerMobile = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(mapMobile).bindPopup('Your Location');
-
             const sourceLocation = sourceLocationInput.value;
-            const destLocation = destLocationInput.value;
-            const contactNo = contactNoInput.value;
-
-            // Get coordinates for destination
-            const destCoords = bangalore_locations_coords[destLocation];
-            if (!destCoords) {
-                alert("Invalid destination location. Please select from the list.");
-                return;
-            }
-            destinationCoords = [destCoords.lat, destCoords.lng]; // Store for map bounds
-
-            // Add destination marker
-            L.marker(destinationCoords, { icon: destinationIcon }).addTo(map).bindPopup('Your Destination');
-            L.marker(destinationCoords, { icon: destinationIcon }).addTo(mapMobile).bindPopup('Your Destination');
-
-
-            const requestData = {
-                source_location: sourceLocation,
-                dest_location: destLocation,
-                contact_no: contactNo,
-                user_lat: userLocation.lat,
-                user_lng: userLocation.lng
-            };
-
-            submitBtn.textContent = 'Requesting...';
+            const destLocation = document.getElementById('destLocation').value;
+            if (liveUserCoords === null && !allowedLocations.includes(sourceLocation)) return alert(`Invalid 'From' location.`);
+            if (!allowedLocations.includes(destLocation)) return alert(`Invalid 'To' location.`);
             submitBtn.disabled = true;
-
+            submitBtn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Searching...`;
+            const userCoords = liveUserCoords || locationsCoords[sourceLocation];
+            const requestData = { source_location: sourceLocation, dest_location: destLocation, contact_no: document.getElementById('contactNo').value, user_lat: userCoords.lat, user_lng: userCoords.lng };
             try {
-                const response = await fetch('http://localhost:5001/api/client/ride-request', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestData),
-                });
-
+                const response = await fetch(`${clientApiUrl}/ride-request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData) });
                 const result = await response.json();
-               // responseContainer.classList.remove('hidden');
-               // responseOutput.textContent = JSON.stringify(result, null, 2);
-
                 if (response.ok && result.success) {
-                    const driverData = result.data.driver_details;
-                    driverId = driverData.driver_id;
-
-                    driverInfoDiv.innerHTML = `
-                        <p><strong>Name:</strong> ${driverData.name}</p>
-                        <p><strong>Car:</strong> ${driverData.car_model} (${driverData.vehicle_number})</p>
-                        <p><strong>Phone:</strong> ${driverData.phone_number}</p>
-                        <p><strong>Current Location:</strong> ${driverData.location_name}</p>
-                    `;
-                    driverDetailsDiv.classList.remove('hidden');
-                    mapContainerMobile.classList.remove('hidden'); // Show mobile map
-
-                    // Add initial driver marker
-                    const initialDriverCoords = driverData.initial_coords;
-                    driverMarker = L.marker([initialDriverCoords[0], initialDriverCoords[1]], { icon: driverIcon }).addTo(map).bindPopup('Your Driver');
-                    driverMarkerMobile = L.marker([initialDriverCoords[0], initialDriverCoords[1]], { icon: driverIcon }).addTo(mapMobile).bindPopup('Your Driver');
+                    const { order_id, driver_id, driver_details } = result.data;
                     
-                    // Fit map bounds to include user, driver, and destination
-                    const bounds = L.latLngBounds([userMarker.getLatLng(), driverMarker.getLatLng(), destinationCoords]);
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                    mapMobile.fitBounds(bounds, { padding: [50, 50] });
+                    imageContainer.classList.add('hidden');
+                    mapContainer.classList.remove('hidden');
+                    form.classList.add('hidden');
+                    driverDetailsDiv.classList.remove('hidden');
+                    
+                    initMap(); 
 
-                    locationInterval = setInterval(fetchDriverLocation, 2000); // Poll every 2 seconds
+                    requestAnimationFrame(() => {
+                        map.invalidateSize();
+                        const userLatLng = [userCoords.lat, userCoords.lng];
+                        const driverLatLng = driver_details.coords;
+                        
+                        userMarker = L.marker(userLatLng, { icon: userIcon }).addTo(map).bindPopup('Your Location');
+                        driverMarker = L.marker(driverLatLng, { icon: driverIcon }).addTo(map).bindPopup('Driver Location');
+                        
+                        map.fitBounds([userLatLng, driverLatLng], { padding: [50, 50] });
+                    });
 
-                } else {
-                    alert(`Ride request failed: ${result.message || result.error}`);
+                    driverInfoDiv.innerHTML = `<p><strong class="text-gray-800">Name:</strong> ${driver_details.name}</p><p><strong class="text-gray-800">ID:</strong> ${driver_details.driver_id}</p>`;
+                    
+                    startRideTracking(driver_id, order_id);
+
+                } else { 
+                    alert(`Error: ${result.message || 'Could not request ride.'}`);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'BOOK YOUR RIDE';
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                responseContainer.classList.remove('hidden');
-                responseOutput.textContent = `Error: ${error.message}`;
-                alert('An error occurred while requesting the ride. Check console for details.');
-            } finally {
-                submitBtn.textContent = 'Request Ride';
+            } catch (error) { 
+                alert(`Network Error: ${error}.`);
                 submitBtn.disabled = false;
+                submitBtn.textContent = 'BOOK YOUR RIDE';
             }
         });
-
-        // --- Initialize the application ---
-        document.addEventListener('DOMContentLoaded', (event) => {
-            initMaps();
-        });
-
+        
+        // Initialize map on page load so it's ready.
+        document.addEventListener('DOMContentLoaded', initMap);
     </script>
 </body>
-</html> 
+</html>
+
